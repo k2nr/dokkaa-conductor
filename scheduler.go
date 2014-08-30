@@ -1,14 +1,15 @@
 package main
 
 import (
-	"log"
-	"strconv"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
+	"log"
+	"strconv"
 )
 
 type Scheduler interface {
 	Schedule(ma *Manifest) error
+	StartSchedulingLoop() chan struct{}
 }
 
 type scheduler struct {
@@ -17,16 +18,16 @@ type scheduler struct {
 }
 
 type manifestRunner struct {
-	manifest *Manifest
+	manifest     *Manifest
 	dockerClient DockerInterface
-	runHist map[string]DockerContainerID
+	runHist      map[string]DockerContainerID
 }
 
 func newManifestRunner(manifest *Manifest, dc DockerInterface) *manifestRunner {
 	return &manifestRunner{
-		manifest: manifest,
+		manifest:     manifest,
 		dockerClient: dc,
-		runHist: map[string]DockerContainerID{},
+		runHist:      map[string]DockerContainerID{},
 	}
 }
 
@@ -65,6 +66,26 @@ func NewScheduler(dc DockerInterface, etcdc *etcd.Client) Scheduler {
 	}
 }
 
+func (s scheduler) StartSchedulingLoop() chan struct{} {
+	recv := make(chan *etcd.Response)
+	quit := make(chan struct{})
+
+	go s.etcdClient.Watch("/apps/", 0, true, recv, nil)
+	go func() {
+		defer func() { quit <- struct{}{} }()
+		for n := range recv {
+			if n != nil {
+				val := n.Node.Value
+				m := NewManifest(val)
+				log.Printf("%+v\n", m)
+				err := s.Schedule(&m)
+				assert(err)
+			}
+		}
+	}()
+	return quit
+}
+
 func (s scheduler) Schedule(ma *Manifest) error {
 	for _, container := range ma.Containers {
 		image := container.Image
@@ -86,16 +107,16 @@ func (s scheduler) pullImage(image string) error {
 }
 
 func buildRunOptions(name string, container Container) DockerRunOptions {
-		exposedPorts := buildExposedPorts(container.Ports)
-		return DockerRunOptions{
-			ContainerName: name,
-			ContainerConfig: &docker.Config{
-				ExposedPorts: exposedPorts,
-			},
-			HostConfig: &docker.HostConfig{
-				PublishAllPorts: true,
-			},
-		}
+	exposedPorts := buildExposedPorts(container.Ports)
+	return DockerRunOptions{
+		ContainerName: name,
+		ContainerConfig: &docker.Config{
+			ExposedPorts: exposedPorts,
+		},
+		HostConfig: &docker.HostConfig{
+			PublishAllPorts: true,
+		},
+	}
 }
 
 func buildExposedPorts(ports []int) map[docker.Port]struct{} {

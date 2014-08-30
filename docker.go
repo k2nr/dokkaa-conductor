@@ -13,6 +13,7 @@ type DockerInterface interface {
 	StartContainer(id string, hostConfig *docker.HostConfig) error
 	StopContainer(id string, timeout uint) error
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
+	AddEventListener(listener chan<- *docker.APIEvents) error
 }
 
 func NewDockerClient(host string) (DockerInterface, error) {
