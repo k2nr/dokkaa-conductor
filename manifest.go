@@ -11,6 +11,7 @@ type Port struct {
 
 type Container struct {
 	Image    string
+	Name     string
 	Scale    int
 	Env      map[string]string
 	Links    []string
@@ -21,12 +22,15 @@ type Container struct {
 }
 
 type Manifest struct {
-	Id         string
-	Containers map[string]Container
+	ID        string
+	Container Container
 }
 
-func NewManifest(s string) Manifest {
+func NewManifest(app, container, val string) *Manifest {
 	var m Manifest
-	json.Unmarshal([]byte(s), &m)
-	return m
+	json.Unmarshal([]byte(val), &m)
+	m.ID = app
+	m.Container.Name = container
+
+	return &m
 }

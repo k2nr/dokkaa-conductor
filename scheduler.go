@@ -5,6 +5,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"log"
 	"strconv"
+	"regexp"
 )
 
 type Scheduler interface {
@@ -20,43 +21,25 @@ type scheduler struct {
 type manifestRunner struct {
 	manifest     *Manifest
 	dockerClient DockerInterface
-	runHist      map[string]DockerContainerID
 }
 
 func newManifestRunner(manifest *Manifest, dc DockerInterface) *manifestRunner {
 	return &manifestRunner{
 		manifest:     manifest,
 		dockerClient: dc,
-		runHist:      map[string]DockerContainerID{},
 	}
 }
 
-func (mr manifestRunner) runAll() {
-	for name, _ := range mr.manifest.Containers {
-		mr.run(name)
-	}
-}
-
-func (mr manifestRunner) run(name string) {
-	if _, ok := mr.runHist[name]; ok {
-		return
-	}
-	container := mr.manifest.Containers[name]
-
-	// run linked containers first
-	if len(container.Links) > 0 {
-		for _, linkName := range container.Links {
-			mr.run(linkName)
-		}
-	}
-
-	opts := buildRunOptions(name, container)
+func (mr manifestRunner) run() error {
+	container := mr.manifest.Container
+	opts := buildRunOptions(mr.manifest.Container)
 	runner := NewDockerRunner(mr.dockerClient)
 	containerID, err := runner.Run(container.Image, opts)
-	if err == nil {
-		log.Printf("%s is running: %s\n", name, containerID)
-		mr.runHist[name] = containerID
+	if err != nil {
+		return err
 	}
+	log.Printf("%s is running: %s\n", container.Name, containerID)
+	return nil
 }
 
 func NewScheduler(dc DockerInterface, etcdc *etcd.Client) Scheduler {
@@ -75,28 +58,36 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 		defer func() { quit <- struct{}{} }()
 		for n := range recv {
 			if n != nil {
+//				action := n.Action
+				appName, containerName, _ := keySubMatch(n.Node.Key)
 				val := n.Node.Value
-				m := NewManifest(val)
+				m := NewManifest(appName, containerName, val)
 				log.Printf("%+v\n", m)
-				err := s.Schedule(&m)
-				assert(err)
+				s.Schedule(m)
 			}
 		}
 	}()
 	return quit
 }
 
+func keySubMatch(key string) (appName, containerName string, err error) {
+	r,_ := regexp.Compile("/apps/([^/]+)/?([^/]+)?$")
+	submatch := r.FindStringSubmatch(key)
+	if len(submatch) == 0 {
+		return "", "", nil
+	}
+	return submatch[0], submatch[1], nil
+}
+
 func (s scheduler) Schedule(ma *Manifest) error {
-	for _, container := range ma.Containers {
-		image := container.Image
-		err := s.pullImage(image)
-		if err != nil {
-			return err
-		}
+	image := ma.Container.Image
+	err := s.pullImage(image)
+	if err != nil {
+		return err
 	}
 
 	mr := newManifestRunner(ma, s.dockerClient)
-	mr.runAll()
+	mr.run()
 
 	return nil
 }
@@ -106,7 +97,8 @@ func (s scheduler) pullImage(image string) error {
 	return puller.Pull(image)
 }
 
-func buildRunOptions(name string, container Container) DockerRunOptions {
+func buildRunOptions(container Container) DockerRunOptions {
+	name := container.Name
 	exposedPorts := buildExposedPorts(container.Ports)
 	return DockerRunOptions{
 		ContainerName: name,
