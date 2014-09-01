@@ -6,6 +6,7 @@ import (
 	"log"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type Scheduler interface {
@@ -65,9 +66,14 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 
 				switch action {
 				case "set":
-					m := NewManifest(appName, containerName, val)
-					log.Printf("%+v\n", m)
-					s.Schedule(m)
+					order := myHostLoadOrder(hostIP)
+					time.Sleep(time.Second * time.Duration(order))
+					acquired, _ := s.acquire(appName, containerName)
+					if acquired {
+						m := NewManifest(appName, containerName, val)
+						log.Printf("acquired: %+v\n", m)
+						s.Schedule(m)
+					}
 				case "delete":
 					name := appName + "---" + containerName
 					err := s.dockerClient.StopContainer(name, 60)
@@ -95,13 +101,22 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 	return quit
 }
 
+func myHostLoadOrder(ip string) int {
+	return 0
+}
+
 func keySubMatch(key string) (appName, containerName string, err error) {
-	r, _ := regexp.Compile("/apps/([^/]+)/?([^/]+)?$")
+	r, _ := regexp.Compile("/apps/([^/]+)/([^/]+)/manifest$")
 	submatch := r.FindStringSubmatch(key)
 	if len(submatch) == 0 {
 		return "", "", nil
 	}
 	return submatch[1], submatch[2], nil
+}
+
+func (s scheduler) acquire(app, container string) (bool, error) {
+	_, err := s.etcdClient.Create("/apps/" + app + "/" + container + "/host", "", 0)
+	return err == nil, err
 }
 
 func (s scheduler) Schedule(ma *Manifest) error {
