@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
@@ -63,14 +64,14 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 				action := n.Action
 				appName, containerName, _ := keySubMatch(n.Node.Key)
 				val := n.Node.Value
+				m := NewManifest(appName, containerName, val)
 
 				switch action {
 				case "set":
 					order := myHostLoadOrder(hostIP)
 					time.Sleep(time.Second * time.Duration(order))
-					acquired, _ := s.acquire(appName, containerName)
+					acquired, _ := s.acquire(m)
 					if acquired {
-						m := NewManifest(appName, containerName, val)
 						log.Printf("acquired: %+v\n", m)
 						s.Schedule(m)
 					}
@@ -102,6 +103,7 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 }
 
 func myHostLoadOrder(ip string) int {
+	// TODO
 	return 0
 }
 
@@ -114,9 +116,76 @@ func keySubMatch(key string) (appName, containerName string, err error) {
 	return submatch[1], submatch[2], nil
 }
 
-func (s scheduler) acquire(app, container string) (bool, error) {
-	_, err := s.etcdClient.Create("/apps/" + app + "/" + container + "/host", "", 0)
-	return err == nil, err
+func (s scheduler) getHosts(manifest *Manifest) ([]string, uint64, error) {
+	key := manifest.HostsKey()
+	resp, err := s.etcdClient.Get(key, false, false)
+	if err != nil {
+		log.Printf("error: %+v\n", err)
+		return nil, 0, err
+	}
+	var hosts []string
+	err = json.Unmarshal([]byte(resp.Node.Value), &hosts)
+	return hosts, resp.Node.ModifiedIndex, err
+}
+
+func (s scheduler) acquire(manifest *Manifest) (bool, error) {
+	for i := 0; i < 3; i++ {
+		hosts, modifiedIndex, err := s.getHosts(manifest)
+		log.Printf("modified index: %d", modifiedIndex)
+		if err != nil {
+			log.Printf("error: %+v\n", err.(*etcd.EtcdError))
+//			return false, err
+		}
+
+		if len(hosts) >= manifest.Container.Scale {
+			log.Printf("hosts >= scale", err)
+			return false, nil
+		}
+
+		included := false
+		for _, h := range hosts {
+			log.Println(h)
+			if h == hostIP {
+				included = true
+				break
+			}
+		}
+		log.Printf("included: %+v\n", included)
+
+		if !included {
+			hosts = append(hosts, hostIP)
+			log.Printf("hosts: %+v\n", hosts)
+
+			hostsStr, err := json.Marshal(hosts)
+			if err != nil {
+				log.Printf("error: %+v\n", err)
+				return false, err
+			}
+			if modifiedIndex == 0 {
+				_, err = s.etcdClient.Create(
+					manifest.HostsKey(),
+					string(hostsStr),
+					0)
+			} else {
+				_, err = s.etcdClient.CompareAndSwap(
+					manifest.HostsKey(),
+					string(hostsStr),
+					0,
+					"",
+					modifiedIndex)
+			}
+			if err == nil {
+				log.Println("acquired")
+				return true, nil
+			} else {
+				log.Printf("err: %+v\n", err)
+			}
+		} else {
+			// TODO: check running containers and run manifest's container if the container not running
+		}
+	}
+
+	return false, nil
 }
 
 func (s scheduler) Schedule(ma *Manifest) error {

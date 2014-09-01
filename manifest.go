@@ -22,18 +22,36 @@ type Container struct {
 }
 
 type Manifest struct {
-	ID        string
+	AppName   string
+	ContainerName string
 	Container Container
 }
 
 func NewManifest(app, container, val string) *Manifest {
 	m := Manifest{
-		ID: app,
+		AppName: app,
+		ContainerName: container,
 	}
 	var c Container
-	json.Unmarshal([]byte(val), &c)
-	m.Container = c
-	m.Container.Name = app + "---" + container
+	err := json.Unmarshal([]byte(val), &c)
+	if err == nil {
+		m.Container = c
+		m.Container.Name = app + "---" + container
+	}
 
 	return &m
+}
+
+func (m *Manifest) keyRoot() string {
+	a := m.AppName
+	c := m.ContainerName
+	return "/apps/" + a + "/" + c + "/"
+}
+
+func (m *Manifest) ManifestKey() string {
+	return m.keyRoot() + "manifest"
+}
+
+func (m *Manifest) HostsKey() string {
+	return m.keyRoot() + "hosts"
 }
