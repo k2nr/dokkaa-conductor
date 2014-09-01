@@ -27,10 +27,13 @@ type Manifest struct {
 }
 
 func NewManifest(app, container, val string) *Manifest {
-	var m Manifest
-	json.Unmarshal([]byte(val), &m)
-	m.ID = app
-	m.Container.Name = container
+	m := Manifest{
+		ID: app,
+	}
+	var c Container
+	json.Unmarshal([]byte(val), &c)
+	m.Container = c
+	m.Container.Name = app + "---" + container
 
 	return &m
 }

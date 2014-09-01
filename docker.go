@@ -12,6 +12,8 @@ type DockerInterface interface {
 	CreateContainer(docker.CreateContainerOptions) (*docker.Container, error)
 	StartContainer(id string, hostConfig *docker.HostConfig) error
 	StopContainer(id string, timeout uint) error
+	RemoveContainer(opts docker.RemoveContainerOptions) error
+	WaitContainer(id string) (int, error)
 	PullImage(opts docker.PullImageOptions, auth docker.AuthConfiguration) error
 	AddEventListener(listener chan<- *docker.APIEvents) error
 }

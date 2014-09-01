@@ -4,8 +4,8 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
-	"strconv"
 	"regexp"
+	"strconv"
 )
 
 type Scheduler interface {
@@ -36,6 +36,7 @@ func (mr manifestRunner) run() error {
 	runner := NewDockerRunner(mr.dockerClient)
 	containerID, err := runner.Run(container.Image, opts)
 	if err != nil {
+		log.Printf("error: %+v\n", err)
 		return err
 	}
 	log.Printf("%s is running: %s\n", container.Name, containerID)
@@ -58,31 +59,56 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 		defer func() { quit <- struct{}{} }()
 		for n := range recv {
 			if n != nil {
-//				action := n.Action
+				action := n.Action
 				appName, containerName, _ := keySubMatch(n.Node.Key)
 				val := n.Node.Value
-				m := NewManifest(appName, containerName, val)
-				log.Printf("%+v\n", m)
-				s.Schedule(m)
+
+				switch action {
+				case "set":
+					m := NewManifest(appName, containerName, val)
+					log.Printf("%+v\n", m)
+					s.Schedule(m)
+				case "delete":
+					name := appName + "---" + containerName
+					err := s.dockerClient.StopContainer(name, 60)
+					if err != nil {
+						log.Printf("error: %+v\n", err)
+					}
+					_, err = s.dockerClient.WaitContainer(name)
+					if err != nil {
+						log.Printf("error: %+v\n", err)
+					}
+					opts := docker.RemoveContainerOptions{
+						ID:            name,
+						RemoveVolumes: true,
+						Force:         false,
+					}
+					err = s.dockerClient.RemoveContainer(opts)
+					if err != nil {
+						log.Printf("error: %+v\n", err)
+					}
+				}
 			}
 		}
+		log.Println("schedule loop ended")
 	}()
 	return quit
 }
 
 func keySubMatch(key string) (appName, containerName string, err error) {
-	r,_ := regexp.Compile("/apps/([^/]+)/?([^/]+)?$")
+	r, _ := regexp.Compile("/apps/([^/]+)/?([^/]+)?$")
 	submatch := r.FindStringSubmatch(key)
 	if len(submatch) == 0 {
 		return "", "", nil
 	}
-	return submatch[0], submatch[1], nil
+	return submatch[1], submatch[2], nil
 }
 
 func (s scheduler) Schedule(ma *Manifest) error {
 	image := ma.Container.Image
 	err := s.pullImage(image)
 	if err != nil {
+		log.Printf("error: %+v\n", err)
 		return err
 	}
 

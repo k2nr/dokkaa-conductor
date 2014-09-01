@@ -42,6 +42,7 @@ func (r register) StartDockerEventLoop() chan struct{} {
 				r.Delete(DockerContainerID(event.ID))
 			}
 		}
+		log.Println("docker loop ended")
 	}()
 	return quit
 }
