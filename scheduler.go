@@ -139,18 +139,19 @@ func (s scheduler) myHostLoadOrder(ip string) (int, error) {
 		return 0, nil
 	}
 
-	rank := 0
+	order := 0
 	thisHostCnt := hostRanks[hostIP]
 	for h, n := range hostRanks {
 		if h == hostIP {
 			continue
 		}
 		if n < thisHostCnt {
-			rank++
+			order++
 		}
 	}
-	log.Printf("rank: %d", rank)
-	return rank, nil
+	log.Printf("ranks: %d", hostRanks)
+	log.Printf("order: %d", order)
+	return order, nil
 }
 
 func keySubMatch(key string) (appName, containerName string, err error) {
