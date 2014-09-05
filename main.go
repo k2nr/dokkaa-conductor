@@ -24,7 +24,11 @@ func assert(err error) {
 
 func main() {
 	flag.Parse()
-	etcdClient := etcd.NewClient([]string{"http://127.0.0.1:4001"})
+	etcdAddr := "http://" + os.Getenv("ETCD_ADDR")
+	if len(etcdAddr) == 0 {
+		etcdAddr = "http://127.0.0.1:4001"
+	}
+	etcdClient := etcd.NewClient([]string{etcdAddr})
 	dockerClient, _ := NewDockerClient(os.Getenv("DOCKER_HOST"))
 	scheduler := NewScheduler(dockerClient, etcdClient)
 	register := NewRegister(dockerClient, etcdClient)
