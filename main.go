@@ -7,7 +7,9 @@ import (
 	"os"
 )
 
-var hostIP = "localhost"
+var (
+	hostIP string
+)
 
 func getopt(name, def string) string {
 	if env := os.Getenv(name); env != "" {
@@ -24,12 +26,10 @@ func assert(err error) {
 
 func main() {
 	flag.Parse()
-	etcdAddr := "http://" + os.Getenv("ETCD_ADDR")
-	if len(etcdAddr) == 0 {
-		etcdAddr = "http://127.0.0.1:4001"
-	}
+	hostIP = getopt("HOST_IP", "127.0.0.1")
+	etcdAddr := "http://" + getopt("ETCD_ADDR", "127.0.0.1:4001")
 	etcdClient := etcd.NewClient([]string{etcdAddr})
-	dockerClient, _ := NewDockerClient(os.Getenv("DOCKER_HOST"))
+	dockerClient, _ := NewDockerClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
 	scheduler := NewScheduler(dockerClient, etcdClient)
 	register := NewRegister(dockerClient, etcdClient)
 
