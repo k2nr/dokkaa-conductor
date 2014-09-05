@@ -70,6 +70,7 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 				case "set":
 					order, err := s.myHostLoadOrder(hostIP)
 					if err != nil {
+						log.Println(err)
 						continue
 					}
 					time.Sleep(time.Second * time.Duration(order))
@@ -133,7 +134,9 @@ func (s scheduler) getHostRanks() (map[string]int, error) {
 func (s scheduler) myHostLoadOrder(ip string) (int, error) {
 	hostRanks, err := s.getHostRanks()
 	if err != nil {
-		return 0, err
+		// in order to ignore /hosts key not found error
+		// TODO: ignore only not found error
+		return 0, nil
 	}
 
 	rank := 0
