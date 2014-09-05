@@ -133,7 +133,7 @@ func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 		hosts, modifiedIndex, err := s.getHosts(manifest)
 		if err != nil {
 			log.Printf("error: %+v\n", err.(*etcd.EtcdError))
-//			return false, err
+			//			return false, err
 		}
 
 		if len(hosts) >= manifest.Container.Scale {

@@ -22,14 +22,14 @@ type Container struct {
 }
 
 type Manifest struct {
-	AppName   string
+	AppName       string
 	ContainerName string
-	Container Container
+	Container     Container
 }
 
 func NewManifest(app, container, val string) *Manifest {
 	m := Manifest{
-		AppName: app,
+		AppName:       app,
 		ContainerName: container,
 	}
 	var c Container
