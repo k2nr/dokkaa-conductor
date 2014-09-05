@@ -68,7 +68,10 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 
 				switch action {
 				case "set":
-					order := myHostLoadOrder(hostIP)
+					order, err := s.myHostLoadOrder(hostIP)
+					if err != nil {
+						continue
+					}
 					time.Sleep(time.Second * time.Duration(order))
 					acquired, _ := s.acquire(m)
 					if acquired {
@@ -102,9 +105,49 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 	return quit
 }
 
-func myHostLoadOrder(ip string) int {
-	// TODO
-	return 0
+func (s scheduler) getHostRanks() (map[string]int, error) {
+	resp, err := s.etcdClient.Get("/hosts", false, true)
+	if err != nil {
+		return nil, err
+	}
+
+	hostRanks := map[string]int{}
+	hostNodes := resp.Node.Nodes
+	rHost, _ := regexp.Compile("/hosts/([^/]+)$")
+	for _, node := range hostNodes {
+		submatch := rHost.FindStringSubmatch(node.Key)
+		host := submatch[1]
+		var containersNode *etcd.Node
+		for _, nn := range node.Nodes {
+			if nn.Key == "/hosts/"+host+"/containers" {
+				containersNode = nn
+				break
+			}
+		}
+		hostRanks[host] = len(containersNode.Nodes)
+	}
+
+	return hostRanks, nil
+}
+
+func (s scheduler) myHostLoadOrder(ip string) (int, error) {
+	hostRanks, err := s.getHostRanks()
+	if err != nil {
+		return 0, err
+	}
+
+	rank := 0
+	thisHostCnt := hostRanks[hostIP]
+	for h, n := range hostRanks {
+		if h == hostIP {
+			continue
+		}
+		if n < thisHostCnt {
+			rank++
+		}
+	}
+	log.Printf("rank: %d", rank)
+	return rank, nil
 }
 
 func keySubMatch(key string) (appName, containerName string, err error) {
