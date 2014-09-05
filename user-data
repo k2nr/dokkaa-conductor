@@ -42,5 +42,10 @@ coreos:
       Requires=docker.service
 
       [Service]
-      ExecStart=/usr/bin/docker run --name scheduler -v /var/run/docker.sock:/var/run/docker.sock -e DOCKER_HOST=unix:///var/run/docker.sock -e ETCD_ADDR=$public_ipv4:4001 k2nr/dokkaa-scheduler
+      ExecStart=/usr/bin/docker run --name scheduler \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -e HOST_IP=$public_ip \
+                  -e DOCKER_HOST=unix:///var/run/docker.sock \
+                  -e ETCD_ADDR=$public_ipv4:4001 \
+                  k2nr/dokkaa-scheduler
       ExecStop=/usr/bin/docker stop scheduler
