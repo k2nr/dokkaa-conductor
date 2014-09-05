@@ -131,30 +131,25 @@ func (s scheduler) getHosts(manifest *Manifest) ([]string, uint64, error) {
 func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 	for i := 0; i < 3; i++ {
 		hosts, modifiedIndex, err := s.getHosts(manifest)
-		log.Printf("modified index: %d", modifiedIndex)
 		if err != nil {
 			log.Printf("error: %+v\n", err.(*etcd.EtcdError))
 //			return false, err
 		}
 
 		if len(hosts) >= manifest.Container.Scale {
-			log.Printf("hosts >= scale", err)
 			return false, nil
 		}
 
 		included := false
 		for _, h := range hosts {
-			log.Println(h)
 			if h == hostIP {
 				included = true
 				break
 			}
 		}
-		log.Printf("included: %+v\n", included)
 
 		if !included {
 			hosts = append(hosts, hostIP)
-			log.Printf("hosts: %+v\n", hosts)
 
 			hostsStr, err := json.Marshal(hosts)
 			if err != nil {
@@ -175,10 +170,8 @@ func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 					modifiedIndex)
 			}
 			if err == nil {
-				log.Println("acquired")
 				return true, nil
 			} else {
-				log.Printf("err: %+v\n", err)
 			}
 		} else {
 			// TODO: check running containers and run manifest's container if the container not running
