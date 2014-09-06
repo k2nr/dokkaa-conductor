@@ -3,7 +3,7 @@ coreos:
   etcd:
     addr: $public_ipv4:4001
     peer-addr: $public_ipv4:7001
-    discovery: https://discovery.etcd.io/3e565d0f902583900b6615895a998f71
+    discovery: https://discovery.etcd.io/40a854ba6063d605c42571e23dad4e5d
   fleet:
     public-ip: $public_ipv4
   units:
@@ -44,8 +44,9 @@ coreos:
       [Service]
       ExecStart=/usr/bin/docker run --name scheduler \
                   -v /var/run/docker.sock:/var/run/docker.sock \
-                  -e HOST_IP=$public_ip \
+                  -e HOST_IP=$public_ipv4 \
                   -e DOCKER_HOST=unix:///var/run/docker.sock \
                   -e ETCD_ADDR=$public_ipv4:4001 \
+                  --restart=always \
                   k2nr/dokkaa-scheduler
       ExecStop=/usr/bin/docker stop scheduler
