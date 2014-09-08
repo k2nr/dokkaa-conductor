@@ -65,6 +65,7 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 				appName, containerName, _ := keySubMatch(n.Node.Key)
 				val := n.Node.Value
 				m := NewManifest(appName, containerName, val)
+				log.Printf("etcd received: action=%s", action)
 
 				switch action {
 				case "set":
@@ -183,10 +184,6 @@ func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 			//			return false, err
 		}
 
-		if len(hosts) >= manifest.Container.Scale {
-			return false, nil
-		}
-
 		included := false
 		for _, h := range hosts {
 			if h == hostIP {
@@ -196,6 +193,11 @@ func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 		}
 
 		if !included {
+			if len(hosts) >= manifest.Container.Scale {
+				log.Printf("already acquired by other hosts")
+				return false, nil
+			}
+
 			hosts = append(hosts, hostIP)
 
 			hostsStr, err := json.Marshal(hosts)
@@ -222,6 +224,7 @@ func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 			}
 		} else {
 			// TODO: check running containers and run manifest's container if the container not running
+			return true, nil
 		}
 	}
 
@@ -249,16 +252,27 @@ func (s scheduler) pullImage(image string) error {
 
 func buildRunOptions(container Container) DockerRunOptions {
 	name := container.Name
+	env := buildEnv(container.Env)
 	exposedPorts := buildExposedPorts(container.Ports)
 	return DockerRunOptions{
 		ContainerName: name,
 		ContainerConfig: &docker.Config{
+			Env: env,
 			ExposedPorts: exposedPorts,
 		},
 		HostConfig: &docker.HostConfig{
 			PublishAllPorts: true,
 		},
 	}
+}
+
+func buildEnv(env map[string]string) []string {
+	res := []string{}
+	for k, v := range env {
+		res = append(res, k + "=" + v)
+	}
+
+	return res
 }
 
 func buildExposedPorts(ports []int) map[docker.Port]struct{} {

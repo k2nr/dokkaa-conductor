@@ -37,6 +37,8 @@ func NewManifest(app, container, val string) *Manifest {
 	if err == nil {
 		m.Container = c
 		m.Container.Name = app + "---" + container
+		m.Container.Env = map[string]string{}
+		m.Container.Env["SERVICE_NAME"] = container
 	}
 
 	return &m
