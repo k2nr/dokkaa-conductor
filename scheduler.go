@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	ambassadorName = "ambassador"
+)
+
 type Scheduler interface {
 	Schedule(ma *Manifest) error
 	StartSchedulingLoop() chan struct{}
@@ -34,7 +38,7 @@ func newManifestRunner(manifest *Manifest, dc DockerInterface) *manifestRunner {
 
 func (mr manifestRunner) run() error {
 	container := mr.manifest.Container
-	opts := buildRunOptions(mr.manifest.Container)
+	opts := mr.buildRunOptions(mr.manifest.Container)
 	runner := NewDockerRunner(mr.dockerClient)
 	containerID, err := runner.Run(container.Image, opts)
 	if err != nil {
@@ -250,10 +254,15 @@ func (s scheduler) pullImage(image string) error {
 	return puller.Pull(image)
 }
 
-func buildRunOptions(container Container) DockerRunOptions {
+func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 	name := container.Name
 	env := buildEnv(container.Env)
 	exposedPorts := buildExposedPorts(container.Ports)
+	var links []string
+	c, _ := mr.dockerClient.InspectContainer(ambassadorName)
+	if c != nil {
+		links[0] = ambassadorName
+	}
 	return DockerRunOptions{
 		ContainerName: name,
 		ContainerConfig: &docker.Config{
@@ -262,6 +271,7 @@ func buildRunOptions(container Container) DockerRunOptions {
 		},
 		HostConfig: &docker.HostConfig{
 			PublishAllPorts: true,
+			Links: links,
 		},
 	}
 }
