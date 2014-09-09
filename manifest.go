@@ -1,7 +1,14 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+	"strconv"
 	"encoding/json"
+)
+
+const (
+	backendsPortStart = 7000
 )
 
 type Port struct {
@@ -40,6 +47,12 @@ func NewManifest(app, container, val string) *Manifest {
 		m.Container.Env = map[string]string{}
 		m.Container.Env["DOKKAA_APP_NAME"] = app
 		m.Container.Env["DOKKAA_SERVICE_NAME"] = container
+		for i, l := range m.Container.Links {
+			port := backendsPortStart + i
+			m.Container.Env[fmt.Sprintf("BACKENDS_%d", port)] = l + "." + app + ".skydns.local"
+			m.Container.Env[strings.ToUpper(l) + "_ADDR"] = "backends"
+			m.Container.Env[strings.ToUpper(l) + "_PORT"] = strconv.Itoa(port)
+		}
 	}
 
 	return &m
