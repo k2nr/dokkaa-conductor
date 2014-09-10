@@ -25,7 +25,7 @@ type Container struct {
 	Command  []string
 	Dns      []string
 	Hostname string
-	Ports    []int
+	Services map[string]int
 }
 
 type Manifest struct {
@@ -46,7 +46,9 @@ func NewManifest(app, container, val string) *Manifest {
 		m.Container.Name = app + "---" + container
 		m.Container.Env = map[string]string{}
 		m.Container.Env["DOKKAA_APP_NAME"] = app
-		m.Container.Env["DOKKAA_SERVICE_NAME"] = container
+		for k, v := range m.Container.Services {
+			m.Container.Env["DOKKAA_SERVICE_" + k] = strconv.Itoa(v)
+		}
 		for i, l := range m.Container.Links {
 			port := backendsPortStart + i
 			m.Container.Env[fmt.Sprintf("BACKENDS_%d", port)] = l + "." + app + ".skydns.local"

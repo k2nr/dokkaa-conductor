@@ -257,7 +257,11 @@ func (s scheduler) pullImage(image string) error {
 func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 	name := container.Name
 	env := buildEnv(container.Env)
-	exposedPorts := buildExposedPorts(container.Ports)
+	var ports []int
+	for _,p := range container.Services {
+		ports = append(ports, p)
+	}
+	exposedPorts := buildExposedPorts(ports)
 	var links []string
 	c, _ := mr.dockerClient.InspectContainer(ambassadorName)
 	if c != nil {
