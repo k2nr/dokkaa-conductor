@@ -48,13 +48,26 @@ func (r register) StartDockerEventLoop() chan struct{} {
 }
 
 func (r register) Add(id DockerContainerID) error {
-	_, err := r.dockerClient.InspectContainer(string(id))
+	container, err := r.dockerClient.InspectContainer(string(id))
 	if err != nil {
+		log.Println("register: ", err)
 		return err
 	}
 	path := rootPath() + "/containers/" + string(id)
 	_, err = r.etcdClient.Set(path, "", 0)
-	return err
+
+	services, err := Services(container)
+	if err != nil {
+		log.Println("register: ", err)
+		return err
+	}
+	for _, s := range services {
+		err = s.Register(r.etcdClient)
+		if err != nil {
+			log.Println("register: ", err)
+		}
+	}
+	return nil
 }
 
 func (r register) Delete(id DockerContainerID) error {
@@ -62,6 +75,19 @@ func (r register) Delete(id DockerContainerID) error {
 	_, err := r.etcdClient.Delete(path, false)
 	if err != nil {
 		return err
+	}
+
+	container, err := r.dockerClient.InspectContainer(string(id))
+	if err != nil {
+		log.Println("register: ", err)
+		return err
+	}
+	services, err := Services(container)
+	for _, s := range services {
+		err = s.Delete(r.etcdClient)
+		if err != nil {
+			log.Println("register: ", err)
+		}
 	}
 	return err
 }

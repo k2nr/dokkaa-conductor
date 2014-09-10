@@ -258,7 +258,7 @@ func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 	name := container.Name
 	env := buildEnv(container.Env)
 	var ports []int
-	for _,p := range container.Services {
+	for _, p := range container.Services {
 		ports = append(ports, p)
 	}
 	exposedPorts := buildExposedPorts(ports)
@@ -270,12 +270,12 @@ func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 	return DockerRunOptions{
 		ContainerName: name,
 		ContainerConfig: &docker.Config{
-			Env: env,
+			Env:          env,
 			ExposedPorts: exposedPorts,
 		},
 		HostConfig: &docker.HostConfig{
 			PublishAllPorts: true,
-			Links: links,
+			Links:           links,
 		},
 	}
 }
@@ -283,7 +283,7 @@ func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 func buildEnv(env map[string]string) []string {
 	res := []string{}
 	for k, v := range env {
-		res = append(res, k + "=" + v)
+		res = append(res, k+"="+v)
 	}
 
 	return res

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
-	"strings"
-	"strconv"
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -47,13 +47,13 @@ func NewManifest(app, container, val string) *Manifest {
 		m.Container.Env = map[string]string{}
 		m.Container.Env["DOKKAA_APP_NAME"] = app
 		for k, v := range m.Container.Services {
-			m.Container.Env["DOKKAA_SERVICE_" + k] = strconv.Itoa(v)
+			m.Container.Env["DOKKAA_SERVICE_"+k] = strconv.Itoa(v)
 		}
 		for i, l := range m.Container.Links {
 			port := backendsPortStart + i
 			m.Container.Env[fmt.Sprintf("BACKENDS_%d", port)] = l + "." + app + ".skydns.local"
-			m.Container.Env[strings.ToUpper(l) + "_ADDR"] = "backends"
-			m.Container.Env[strings.ToUpper(l) + "_PORT"] = strconv.Itoa(port)
+			m.Container.Env[strings.ToUpper(l)+"_ADDR"] = "backends"
+			m.Container.Env[strings.ToUpper(l)+"_PORT"] = strconv.Itoa(port)
 		}
 	}
 
