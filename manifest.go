@@ -23,8 +23,6 @@ type Container struct {
 	Env      map[string]string
 	Links    []string
 	Command  []string
-	Dns      []string
-	Hostname string
 	Services map[string]int
 }
 
