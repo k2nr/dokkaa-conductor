@@ -31,7 +31,7 @@ func (r register) StartDockerEventLoop() chan struct{} {
 	quit := make(chan struct{})
 
 	go func() {
-		defer func() { quit <- struct{}{} }()
+		defer close(quit)
 		for event := range c {
 			switch event.Status {
 			case "start":

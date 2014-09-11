@@ -62,7 +62,7 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 
 	go s.etcdClient.Watch("/apps/", 0, true, recv, nil)
 	go func() {
-		defer func() { quit <- struct{}{} }()
+		defer close(quit)
 		for n := range recv {
 			if n != nil {
 				action := n.Action
