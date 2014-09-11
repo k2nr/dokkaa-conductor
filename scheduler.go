@@ -56,57 +56,64 @@ func NewScheduler(dc DockerInterface, etcdc *etcd.Client) Scheduler {
 	}
 }
 
-func (s scheduler) StartSchedulingLoop() chan struct{} {
+func (s scheduler) WatchAppChanges() {
 	recv := make(chan *etcd.Response)
-	quit := make(chan struct{})
-
 	go s.etcdClient.Watch("/apps/", 0, true, recv, nil)
-	go func() {
-		defer close(quit)
-		for n := range recv {
-			if n != nil {
-				action := n.Action
-				appName, containerName, _ := keySubMatch(n.Node.Key)
-				val := n.Node.Value
-				m := NewManifest(appName, containerName, val)
-				log.Printf("etcd received: action=%s", action)
+	for n := range recv {
+		if n == nil {
+			continue
+		}
+		action := n.Action
+		appName, containerName, _ := keySubMatch(n.Node.Key)
+		val := n.Node.Value
+		m := NewManifest(appName, containerName, val)
+		log.Printf("etcd received: action=%s", action)
 
-				switch action {
-				case "set":
-					order, err := s.myHostLoadOrder(hostIP)
-					if err != nil {
-						log.Println(err)
-						continue
-					}
-					time.Sleep(time.Second * time.Duration(order))
-					acquired, _ := s.acquire(m)
-					if acquired {
-						log.Printf("acquired: %+v\n", m)
-						s.Schedule(m)
-					}
-				case "delete":
-					name := appName + "---" + containerName
-					err := s.dockerClient.StopContainer(name, 60)
-					if err != nil {
-						log.Printf("error: %+v\n", err)
-					}
-					_, err = s.dockerClient.WaitContainer(name)
-					if err != nil {
-						log.Printf("error: %+v\n", err)
-					}
-					opts := docker.RemoveContainerOptions{
-						ID:            name,
-						RemoveVolumes: true,
-						Force:         false,
-					}
-					err = s.dockerClient.RemoveContainer(opts)
-					if err != nil {
-						log.Printf("error: %+v\n", err)
-					}
-				}
+		switch action {
+		case "set":
+			order, err := s.myHostLoadOrder(hostIP)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			time.Sleep(time.Second * time.Duration(order))
+			acquired, _ := s.acquire(m)
+			if acquired {
+				log.Printf("acquired: %+v\n", m)
+				s.Schedule(m)
+			}
+		case "delete":
+			name := appName + "---" + containerName
+			err := s.dockerClient.StopContainer(name, 60)
+			if err != nil {
+				log.Printf("error: %+v\n", err)
+			}
+			_, err = s.dockerClient.WaitContainer(name)
+			if err != nil {
+				log.Printf("error: %+v\n", err)
+			}
+			opts := docker.RemoveContainerOptions{
+				ID:            name,
+				RemoveVolumes: true,
+				Force:         false,
+			}
+			err = s.dockerClient.RemoveContainer(opts)
+			if err != nil {
+				log.Printf("error: %+v\n", err)
 			}
 		}
-		log.Println("schedule loop ended")
+	}
+}
+
+func (s scheduler) StartSchedulingLoop() chan struct{} {
+	quit := make(chan struct{})
+
+	go func() {
+		defer close(quit)
+		for {
+			s.WatchAppChanges()
+			log.Println("watching loop ended. reconnecting.")
+		}
 	}()
 	return quit
 }
