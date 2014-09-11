@@ -272,7 +272,7 @@ func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 	var links []string
 	c, _ := mr.dockerClient.InspectContainer(ambassadorName)
 	if c != nil {
-		links[0] = ambassadorName
+		links = append(links, ambassadorName)
 	}
 	return DockerRunOptions{
 		ContainerName: name,
