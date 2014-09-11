@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
+	"log"
 	"path"
 	"strconv"
 	"strings"
@@ -47,7 +48,12 @@ func Services(container *docker.Container) ([]Service, error) {
 
 	services := []Service{}
 	for name, port := range serviceMap {
-		hostPort := container.HostConfig.PortBindings[docker.Port(port+"/tcp")][0].HostPort
+		portBinding, ok := container.NetworkSettings.Ports[docker.Port(port+"/tcp")]
+		if !ok {
+			log.Println("No port binding for ", port+"/tcp")
+			continue
+		}
+		hostPort := portBinding[0].HostPort
 		hostPort = strings.TrimSuffix(hostPort, "/tcp")
 		hostPort = strings.TrimSuffix(hostPort, "/udp")
 		s := &service{
