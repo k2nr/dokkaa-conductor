@@ -66,7 +66,11 @@ func (s scheduler) WatchAppChanges() {
 		action := n.Action
 		appName, containerName, _ := keySubMatch(n.Node.Key)
 		val := n.Node.Value
-		m := NewManifest(appName, containerName, val)
+		m, err := NewManifest(appName, containerName, val)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
 		log.Printf("etcd received: action=%s", action)
 
 		switch action {

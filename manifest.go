@@ -32,7 +32,7 @@ type Manifest struct {
 	Container     Container
 }
 
-func NewManifest(app, container, val string) *Manifest {
+func NewManifest(app, container, val string) (*Manifest, error) {
 	m := Manifest{
 		AppName:       app,
 		ContainerName: container,
@@ -40,7 +40,7 @@ func NewManifest(app, container, val string) *Manifest {
 	var c Container
 	err := json.Unmarshal([]byte(val), &c)
 	if err != nil {
-		return &m
+		return &m, err
 	}
 
 	m.Container = c
@@ -60,7 +60,7 @@ func NewManifest(app, container, val string) *Manifest {
 		m.Container.Env[strings.ToUpper(l)+"_PORT"] = strconv.Itoa(port)
 	}
 
-	return &m
+	return &m, nil
 }
 
 func (m *Manifest) keyRoot() string {
