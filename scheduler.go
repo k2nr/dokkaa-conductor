@@ -5,11 +5,11 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
+	"net/url"
 	"regexp"
 	"strconv"
-	"time"
-	"net/url"
 	"strings"
+	"time"
 )
 
 const (
@@ -42,6 +42,10 @@ func newManifestRunner(manifest *Manifest, dc DockerInterface) *manifestRunner {
 func (mr manifestRunner) run() error {
 	container := mr.manifest.Container
 	opts := mr.buildRunOptions(mr.manifest.Container)
+	mr.dockerClient.RemoveContainer(docker.RemoveContainerOptions{
+		ID:    container.Name,
+		Force: true,
+	})
 	runner := NewDockerRunner(mr.dockerClient)
 	containerID, err := runner.Run(container.Image, opts)
 	if err != nil {
@@ -154,7 +158,7 @@ func (s scheduler) GetClusterIPs() []string {
 	ips := []string{}
 	s.etcdClient.SyncCluster()
 	machines := s.etcdClient.GetCluster()
-	for _,m := range machines {
+	for _, m := range machines {
 		u, _ := url.Parse(m)
 		ip := strings.Split(u.Host, ":")[0]
 		ips = append(ips, ip)
@@ -173,7 +177,7 @@ func (s scheduler) myHostLoadOrder(ip string) (int, error) {
 	order := 0
 	thisHostCnt := hostRanks[hostIP]
 	ips := s.GetClusterIPs()
-	for _,ip := range ips {
+	for _, ip := range ips {
 		if ip == hostIP {
 			continue
 		}
