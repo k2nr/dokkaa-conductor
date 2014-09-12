@@ -279,7 +279,7 @@ func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
 		ContainerConfig: &docker.Config{
 			Env:          env,
 			ExposedPorts: exposedPorts,
-			Cmd: container.Command,
+			Cmd:          container.Command,
 		},
 		HostConfig: &docker.HostConfig{
 			PublishAllPorts: true,
