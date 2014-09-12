@@ -53,7 +53,7 @@ func (r register) Add(id DockerContainerID) error {
 		log.Println("register: ", err)
 		return err
 	}
-	path := rootPath() + "/containers/" + string(id)
+	path := rootPath() + "containers/" + string(id)
 	_, err = r.etcdClient.Set(path, "", 0)
 
 	services, err := Services(container)
@@ -71,7 +71,7 @@ func (r register) Add(id DockerContainerID) error {
 }
 
 func (r register) Delete(id DockerContainerID) error {
-	path := rootPath() + "/containers/" + string(id)
+	path := rootPath() + "containers/" + string(id)
 	_, err := r.etcdClient.Delete(path, false)
 	if err != nil {
 		return err
