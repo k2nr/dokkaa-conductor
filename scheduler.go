@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	"net/url"
+	"strings"
 )
 
 const (
@@ -17,6 +19,7 @@ const (
 type Scheduler interface {
 	Schedule(ma *Manifest) error
 	StartSchedulingLoop() chan struct{}
+	GetClusterIPs() []string
 }
 
 type scheduler struct {
@@ -147,6 +150,18 @@ func (s scheduler) getHostRanks() (map[string]int, error) {
 	return hostRanks, nil
 }
 
+func (s scheduler) GetClusterIPs() []string {
+	ips := []string{}
+	s.etcdClient.SyncCluster()
+	machines := s.etcdClient.GetCluster()
+	for _,m := range machines {
+		u, _ := url.Parse(m)
+		ip := strings.Split(u.Host, ":")[0]
+		ips = append(ips, ip)
+	}
+	return ips
+}
+
 func (s scheduler) myHostLoadOrder(ip string) (int, error) {
 	hostRanks, err := s.getHostRanks()
 	if err != nil {
@@ -157,9 +172,14 @@ func (s scheduler) myHostLoadOrder(ip string) (int, error) {
 
 	order := 0
 	thisHostCnt := hostRanks[hostIP]
-	for h, n := range hostRanks {
-		if h == hostIP {
+	ips := s.GetClusterIPs()
+	for _,ip := range ips {
+		if ip == hostIP {
 			continue
+		}
+		n, ok := hostRanks[ip]
+		if !ok {
+			n = 0
 		}
 		if n < thisHostCnt {
 			order++
