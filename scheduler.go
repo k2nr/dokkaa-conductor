@@ -64,12 +64,9 @@ func NewScheduler(dc DockerInterface, etcdc EtcdInterface) Scheduler {
 }
 
 func (s scheduler) WatchAppChanges() {
-	recv := make(chan *etcd.Response)
-	go s.etcdClient.Watch("/apps/", 0, true, recv, nil)
+	watcher := NewEtcdWatcher(s.etcdClient)
+	recv := watcher.Watch("/apps", true)
 	for n := range recv {
-		if n == nil {
-			continue
-		}
 		action := n.Action
 		appName, containerName, _ := keySubMatch(n.Node.Key)
 		val := n.Node.Value
@@ -121,10 +118,7 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 
 	go func() {
 		defer close(quit)
-		for {
-			s.WatchAppChanges()
-			log.Println("watching loop ended. reconnecting.")
-		}
+		s.WatchAppChanges()
 	}()
 	return quit
 }
