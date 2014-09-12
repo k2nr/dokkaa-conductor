@@ -205,7 +205,7 @@ func (s scheduler) acquire(manifest *Manifest) (bool, error) {
 
 		if !included {
 			if len(hosts) >= manifest.Container.Scale {
-				log.Printf("already acquired by other hosts")
+				log.Println("already acquired by other hosts. scale=", manifest.Container.Scale, " hosts=", hosts)
 				return false, nil
 			}
 
