@@ -24,14 +24,21 @@ func assert(err error) {
 	}
 }
 
+func newEtcdClient() EtcdInterface {
+	etcdAddr := "http://" + getopt("ETCD_ADDR", "127.0.0.1:4001")
+	return etcd.NewClient([]string{etcdAddr})
+}
+
+func newDockerClient() DockerInterface {
+	dockerClient, _ := NewDockerClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
+	return dockerClient
+}
+
 func main() {
 	flag.Parse()
 	hostIP = getopt("HOST_IP", "127.0.0.1")
-	etcdAddr := "http://" + getopt("ETCD_ADDR", "127.0.0.1:4001")
-	etcdClient := etcd.NewClient([]string{etcdAddr})
-	dockerClient, _ := NewDockerClient(getopt("DOCKER_HOST", "unix:///var/run/docker.sock"))
-	scheduler := NewScheduler(dockerClient, etcdClient)
-	register := NewRegister(dockerClient, etcdClient)
+	scheduler := NewScheduler(newDockerClient(), newEtcdClient())
+	register := NewRegister(newDockerClient(), newEtcdClient())
 
 	q1 := scheduler.StartSchedulingLoop()
 	q2 := register.StartDockerEventLoop()
