@@ -56,8 +56,9 @@ func NewManifest(app, container, val string) (*Manifest, error) {
 	for i, l := range m.Container.Links {
 		port := backendsPortStart + i
 		m.Container.Env[fmt.Sprintf("BACKENDS_%d", port)] = l + "." + app + ".skydns.local"
-		m.Container.Env[strings.ToUpper(l)+"_ADDR"] = "backends"
-		m.Container.Env[strings.ToUpper(l)+"_PORT"] = strconv.Itoa(port)
+		s := "SERVICE_" + strings.ToUpper(l)
+		m.Container.Env[s+"_ADDR"] = "backends"
+		m.Container.Env[s+"_PORT"] = strconv.Itoa(port)
 	}
 
 	return &m, nil
