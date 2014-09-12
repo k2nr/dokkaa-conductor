@@ -39,20 +39,25 @@ func NewManifest(app, container, val string) *Manifest {
 	}
 	var c Container
 	err := json.Unmarshal([]byte(val), &c)
-	if err == nil {
-		m.Container = c
-		m.Container.Name = app + "---" + container
-		m.Container.Env = map[string]string{}
-		m.Container.Env["DOKKAA_APP_NAME"] = app
-		for k, v := range m.Container.Services {
-			m.Container.Env["DOKKAA_SERVICE_"+k] = strconv.Itoa(v)
-		}
-		for i, l := range m.Container.Links {
-			port := backendsPortStart + i
-			m.Container.Env[fmt.Sprintf("BACKENDS_%d", port)] = l + "." + app + ".skydns.local"
-			m.Container.Env[strings.ToUpper(l)+"_ADDR"] = "backends"
-			m.Container.Env[strings.ToUpper(l)+"_PORT"] = strconv.Itoa(port)
-		}
+	if err != nil {
+		return &m
+	}
+
+	m.Container = c
+	m.Container.Name = app + "---" + container
+	if m.Container.Scale == 0 {
+		m.Container.Scale = 1
+	}
+	m.Container.Env = map[string]string{}
+	m.Container.Env["DOKKAA_APP_NAME"] = app
+	for k, v := range m.Container.Services {
+		m.Container.Env["DOKKAA_SERVICE_"+k] = strconv.Itoa(v)
+	}
+	for i, l := range m.Container.Links {
+		port := backendsPortStart + i
+		m.Container.Env[fmt.Sprintf("BACKENDS_%d", port)] = l + "." + app + ".skydns.local"
+		m.Container.Env[strings.ToUpper(l)+"_ADDR"] = "backends"
+		m.Container.Env[strings.ToUpper(l)+"_PORT"] = strconv.Itoa(port)
 	}
 
 	return &m
