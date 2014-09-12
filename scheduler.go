@@ -5,10 +5,8 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
-	"net/url"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -19,7 +17,6 @@ const (
 type Scheduler interface {
 	Schedule(ma *Manifest) error
 	StartSchedulingLoop() chan struct{}
-	GetClusterIPs() []string
 }
 
 type scheduler struct {
@@ -79,7 +76,8 @@ func (s scheduler) WatchAppChanges() {
 
 		switch action {
 		case "set":
-			order, err := s.myHostLoadOrder(hostIP)
+			cls := NewCluster(s.etcdClient)
+			order, err := cls.HostLoadOrder(hostIP)
 			if err != nil {
 				log.Println(err)
 				continue
@@ -121,71 +119,6 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 		s.WatchAppChanges()
 	}()
 	return quit
-}
-
-func (s scheduler) getHostRanks() (map[string]int, error) {
-	resp, err := s.etcdClient.Get("/hosts", false, true)
-	if err != nil {
-		return nil, err
-	}
-
-	hostRanks := map[string]int{}
-	hostNodes := resp.Node.Nodes
-	rHost, _ := regexp.Compile("/hosts/([^/]+)$")
-	for _, node := range hostNodes {
-		submatch := rHost.FindStringSubmatch(node.Key)
-		host := submatch[1]
-		var containersNode *etcd.Node
-		for _, nn := range node.Nodes {
-			if nn.Key == "/hosts/"+host+"/containers" {
-				containersNode = nn
-				break
-			}
-		}
-		hostRanks[host] = len(containersNode.Nodes)
-	}
-
-	return hostRanks, nil
-}
-
-func (s scheduler) GetClusterIPs() []string {
-	ips := []string{}
-	s.etcdClient.SyncCluster()
-	machines := s.etcdClient.GetCluster()
-	for _, m := range machines {
-		u, _ := url.Parse(m)
-		ip := strings.Split(u.Host, ":")[0]
-		ips = append(ips, ip)
-	}
-	return ips
-}
-
-func (s scheduler) myHostLoadOrder(ip string) (int, error) {
-	hostRanks, err := s.getHostRanks()
-	if err != nil {
-		// in order to ignore /hosts key not found error
-		// TODO: ignore only not found error
-		return 0, nil
-	}
-
-	order := 0
-	thisHostCnt := hostRanks[hostIP]
-	ips := s.GetClusterIPs()
-	for _, ip := range ips {
-		if ip == hostIP {
-			continue
-		}
-		n, ok := hostRanks[ip]
-		if !ok {
-			n = 0
-		}
-		if n < thisHostCnt {
-			order++
-		}
-	}
-	log.Printf("ranks: %d", hostRanks)
-	log.Printf("order: %d", order)
-	return order, nil
 }
 
 func keySubMatch(key string) (appName, containerName string, err error) {
