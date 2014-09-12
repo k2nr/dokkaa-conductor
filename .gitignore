@@ -1,3 +1,5 @@
 *.etcd
 .vagrant
-/dokkaa-scheduler
+*.exe
+*.test
+dokkaa-conductor
