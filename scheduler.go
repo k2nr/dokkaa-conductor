@@ -24,7 +24,7 @@ type Scheduler interface {
 
 type scheduler struct {
 	dockerClient DockerInterface
-	etcdClient   *etcd.Client
+	etcdClient   EtcdInterface
 }
 
 type manifestRunner struct {
@@ -56,7 +56,7 @@ func (mr manifestRunner) run() error {
 	return nil
 }
 
-func NewScheduler(dc DockerInterface, etcdc *etcd.Client) Scheduler {
+func NewScheduler(dc DockerInterface, etcdc EtcdInterface) Scheduler {
 	return &scheduler{
 		dockerClient: dc,
 		etcdClient:   etcdc,

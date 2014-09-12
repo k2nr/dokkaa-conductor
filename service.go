@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
 	"path"
@@ -11,8 +10,8 @@ import (
 )
 
 type Service interface {
-	Register(cli *etcd.Client) error
-	Delete(cli *etcd.Client) error
+	Register(cli EtcdInterface) error
+	Delete(cli EtcdInterface) error
 }
 
 type service struct {
@@ -73,7 +72,7 @@ func (s *service) path() string {
 	return path.Join(base, s.App, s.Name)
 }
 
-func (s *service) Register(cli *etcd.Client) error {
+func (s *service) Register(cli EtcdInterface) error {
 	port, _ := strconv.Atoi(s.HostPort)
 	ann := &Announcement{
 		Host: hostIP,
@@ -85,7 +84,7 @@ func (s *service) Register(cli *etcd.Client) error {
 	return nil
 }
 
-func (s *service) Delete(cli *etcd.Client) error {
+func (s *service) Delete(cli EtcdInterface) error {
 	_, err := cli.Delete(s.path(), false)
 	return err
 }

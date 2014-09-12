@@ -2,7 +2,6 @@ package main
 
 import (
 	_ "encoding/json"
-	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
 )
@@ -15,10 +14,10 @@ type Register interface {
 
 type register struct {
 	dockerClient DockerInterface
-	etcdClient   *etcd.Client
+	etcdClient   EtcdInterface
 }
 
-func NewRegister(dc DockerInterface, etcdc *etcd.Client) Register {
+func NewRegister(dc DockerInterface, etcdc EtcdInterface) Register {
 	return &register{
 		dockerClient: dc,
 		etcdClient:   etcdc,
