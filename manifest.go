@@ -29,7 +29,7 @@ type Container struct {
 type Manifest struct {
 	AppName       string
 	ContainerName string
-	Container     Container
+	Container     *Container
 }
 
 func NewManifest(app, container, val string) (*Manifest, error) {
@@ -38,13 +38,12 @@ func NewManifest(app, container, val string) (*Manifest, error) {
 		ContainerName: container,
 	}
 	var c Container
+	m.Container = &c
+	m.Container.Name = app + "---" + container
 	err := json.Unmarshal([]byte(val), &c)
 	if err != nil {
 		return &m, err
 	}
-
-	m.Container = c
-	m.Container.Name = app + "---" + container
 	if m.Container.Scale == 0 {
 		m.Container.Scale = 1
 	}

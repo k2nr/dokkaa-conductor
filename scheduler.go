@@ -89,7 +89,7 @@ func (s scheduler) WatchAppChanges() {
 				s.Schedule(m)
 			}
 		case "delete":
-			name := appName + "---" + containerName
+			name := m.Container.Name
 			err := s.dockerClient.StopContainer(name, 60)
 			if err != nil {
 				log.Printf("error: %+v\n", err)
@@ -216,7 +216,7 @@ func (s scheduler) pullImage(image string) error {
 	return puller.Pull(image)
 }
 
-func (mr manifestRunner) buildRunOptions(container Container) DockerRunOptions {
+func (mr manifestRunner) buildRunOptions(container *Container) DockerRunOptions {
 	name := container.Name
 	env := buildEnv(container.Env)
 	var ports []int
