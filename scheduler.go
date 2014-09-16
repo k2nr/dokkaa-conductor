@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ambassadorName = "ambassador"
+	ambassadorName = "__ambassador"
 )
 
 type Scheduler interface {
