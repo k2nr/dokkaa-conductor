@@ -4,6 +4,7 @@ import (
 	_ "encoding/json"
 	"github.com/fsouza/go-dockerclient"
 	"log"
+	"strings"
 )
 
 type Register interface {
@@ -51,6 +52,10 @@ func (r register) Add(id DockerContainerID) error {
 	if err != nil {
 		log.Println("register: ", err)
 		return err
+	}
+	if strings.HasPrefix(container.Name, "__") {
+		// containers whose name starts with "__" doesn't be registered
+		return nil
 	}
 	path := rootPath() + "containers/" + string(id)
 	_, err = r.etcdClient.Set(path, "", 0)
