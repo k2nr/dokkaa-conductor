@@ -63,6 +63,32 @@ func NewScheduler(dc DockerInterface, etcdc EtcdInterface) Scheduler {
 	}
 }
 
+func (s scheduler) removeContainer(m *Manifest) error {
+	name := m.Container.Name
+	err := s.dockerClient.StopContainer(name, 60)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	_, err = s.dockerClient.WaitContainer(name)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	opts := docker.RemoveContainerOptions{
+		ID:            name,
+		RemoveVolumes: true,
+		Force:         false,
+	}
+	err = s.dockerClient.RemoveContainer(opts)
+	if err != nil {
+		log.Printf("error: %+v\n", err)
+		return err
+	}
+
+	return nil
+}
+
 func (s scheduler) onManifestChanged(appName, containerName string, resp *etcd.Response) error {
 	action := resp.Action
 	val := resp.Node.Value
@@ -85,24 +111,7 @@ func (s scheduler) onManifestChanged(appName, containerName string, resp *etcd.R
 			s.Schedule(m)
 		}
 	case "delete":
-		name := m.Container.Name
-		err := s.dockerClient.StopContainer(name, 60)
-		if err != nil {
-			log.Println(err)
-		}
-		_, err = s.dockerClient.WaitContainer(name)
-		if err != nil {
-			log.Println(err)
-		}
-		opts := docker.RemoveContainerOptions{
-			ID:            name,
-			RemoveVolumes: true,
-			Force:         false,
-		}
-		err = s.dockerClient.RemoveContainer(opts)
-		if err != nil {
-			log.Printf("error: %+v\n", err)
-		}
+		s.removeContainer(m)
 		s.release(m)
 	}
 	return nil
