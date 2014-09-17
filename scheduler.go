@@ -5,6 +5,7 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 	"github.com/fsouza/go-dockerclient"
 	"log"
+	"math"
 	"regexp"
 	"strconv"
 	"time"
@@ -149,17 +150,21 @@ func (s scheduler) getHosts(manifest *Manifest) ([]string, error) {
 		json.Unmarshal([]byte(v.Value), &h)
 		hosts = append(hosts, h.Addr)
 	}
-	err = json.Unmarshal([]byte(resp.Node.Value), &hosts)
 	return hosts, err
 }
 
 func (s scheduler) hostsIncluded(manifest *Manifest) (bool, error) {
 	scale := manifest.Container.Scale
 	hosts, err := s.getHosts(manifest)
-	hosts = hosts[:manifest.Container.Scale]
+	if err != nil {
+		// error is returned if hosts/ not found. for this error, we have to continue as if there's no error
+		return false, nil
+	}
+	slice := int(math.Min(float64(scale), float64(len(hosts))))
+	hosts = hosts[:int(slice)]
 	included := false
 	if err == nil {
-		for _, h := range hosts[:scale] {
+		for _, h := range hosts {
 			if h == hostIP {
 				included = true
 				break
