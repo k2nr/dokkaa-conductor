@@ -73,6 +73,6 @@ func (m *Manifest) ManifestKey() string {
 	return m.keyRoot() + "manifest"
 }
 
-func (m *Manifest) HostsKey() string {
+func (m *Manifest) HostsDirKey() string {
 	return m.keyRoot() + "hosts"
 }

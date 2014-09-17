@@ -121,6 +121,11 @@ func (s scheduler) StartSchedulingLoop() chan struct{} {
 	return quit
 }
 
+type Host struct {
+	Addr   string `json:"addr"`
+	Status string `json:"status"`
+}
+
 func keySubMatch(key string) (appName, containerName string, err error) {
 	r, _ := regexp.Compile("/apps/([^/]+)/([^/]+)/manifest$")
 	submatch := r.FindStringSubmatch(key)
@@ -130,71 +135,68 @@ func keySubMatch(key string) (appName, containerName string, err error) {
 	return submatch[1], submatch[2], nil
 }
 
-func (s scheduler) getHosts(manifest *Manifest) ([]string, uint64, error) {
-	key := manifest.HostsKey()
-	resp, err := s.etcdClient.Get(key, false, false)
+func (s scheduler) getHosts(manifest *Manifest) ([]string, error) {
+	key := manifest.HostsDirKey()
+	resp, err := s.etcdClient.Get(key, true, true)
 	if err != nil {
-		log.Printf("error: %+v\n", err)
-		return nil, 0, err
+		log.Println(err)
+		return nil, err
 	}
 	var hosts []string
+	for _, v := range resp.Node.Nodes {
+		var h Host
+		json.Unmarshal([]byte(v.Value), &h)
+		hosts = append(hosts, h.Addr)
+	}
 	err = json.Unmarshal([]byte(resp.Node.Value), &hosts)
-	return hosts, resp.Node.ModifiedIndex, err
+	return hosts, err
 }
 
-func (s scheduler) acquire(manifest *Manifest) (bool, error) {
-	for i := 0; i < 3; i++ {
-		hosts, modifiedIndex, err := s.getHosts(manifest)
-		if err != nil {
-			log.Printf("error: %+v\n", err.(*etcd.EtcdError))
-			//			return false, err
-		}
-
-		included := false
-		for _, h := range hosts {
+func (s scheduler) hostsIncluded(manifest *Manifest) (bool, error) {
+	scale := manifest.Container.Scale
+	hosts, err := s.getHosts(manifest)
+	hosts = hosts[:manifest.Container.Scale]
+	included := false
+	if err == nil {
+		for _, h := range hosts[:scale] {
 			if h == hostIP {
 				included = true
 				break
 			}
 		}
+	}
+	limitExceeded := !included && len(hosts) >= scale
+	if limitExceeded {
+		log.Println("already acquired by other hosts. scale=", manifest.Container.Scale, " hosts=", hosts)
+	}
+	return included, nil
+}
 
-		if !included {
-			if len(hosts) >= manifest.Container.Scale {
-				log.Println("already acquired by other hosts. scale=", manifest.Container.Scale, " hosts=", hosts)
-				return false, nil
-			}
-
-			hosts = append(hosts, hostIP)
-
-			hostsStr, err := json.Marshal(hosts)
-			if err != nil {
-				log.Printf("error: %+v\n", err)
-				return false, err
-			}
-			if modifiedIndex == 0 {
-				_, err = s.etcdClient.Create(
-					manifest.HostsKey(),
-					string(hostsStr),
-					0)
-			} else {
-				_, err = s.etcdClient.CompareAndSwap(
-					manifest.HostsKey(),
-					string(hostsStr),
-					0,
-					"",
-					modifiedIndex)
-			}
-			if err == nil {
-				return true, nil
-			} else {
-			}
-		} else {
-			// TODO: check running containers and run manifest's container if the container not running
-			return true, nil
-		}
+func (s scheduler) acquire(manifest *Manifest) (bool, error) {
+	// check if this host is already included
+	included, err := s.hostsIncluded(manifest)
+	if included {
+		return true, nil
 	}
 
-	return false, nil
+	// Set Host
+	hs, err := json.Marshal(Host{
+		Addr:   hostIP,
+		Status: "creating",
+	})
+	if err != nil {
+		log.Println(err)
+		return false, err
+	}
+	_, err = s.etcdClient.CreateInOrder(manifest.HostsDirKey(), string(hs), 0)
+	if err != nil {
+		log.Println(err.(*etcd.EtcdError))
+		return false, err
+	}
+
+	// Check acquired order exceeds scale limit
+	included, err = s.hostsIncluded(manifest)
+	return included, err
 }
 
 func (s scheduler) Schedule(ma *Manifest) error {
