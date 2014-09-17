@@ -107,6 +107,7 @@ func (s scheduler) WatchAppChanges() {
 			if err != nil {
 				log.Printf("error: %+v\n", err)
 			}
+			s.release(m)
 		}
 	}
 }
@@ -210,6 +211,26 @@ func (s scheduler) Schedule(ma *Manifest) error {
 	mr := newManifestRunner(ma, s.dockerClient)
 	mr.run()
 
+	return nil
+}
+
+func (s scheduler) release(manifest *Manifest) error {
+	key := manifest.HostsDirKey()
+	resp, err := s.etcdClient.Get(key, true, true)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	for _, n := range resp.Node.Nodes {
+		var h Host
+		err = json.Unmarshal([]byte(n.Value), &h)
+		if err != nil {
+			continue
+		}
+		if h.Addr == hostIP {
+			s.etcdClient.Delete(n.Key, false)
+		}
+	}
 	return nil
 }
 
