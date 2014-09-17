@@ -2,11 +2,12 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/fsouza/go-dockerclient"
 	"log"
 	"path"
 	"strconv"
 	"strings"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 type Service interface {

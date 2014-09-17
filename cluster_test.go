@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/coreos/go-etcd/etcd"
 	"testing"
+
+	"github.com/coreos/go-etcd/etcd"
 )
 
 func newCluster() Cluster {

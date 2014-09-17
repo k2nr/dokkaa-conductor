@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/fsouza/go-dockerclient"
 	"strings"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 type DockerInterface interface {

@@ -2,14 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/coreos/go-etcd/etcd"
-	"github.com/fsouza/go-dockerclient"
 	"log"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/coreos/go-etcd/etcd"
+	"github.com/fsouza/go-dockerclient"
 )
 
 const (

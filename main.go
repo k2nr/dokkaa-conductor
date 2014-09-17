@@ -2,9 +2,10 @@ package main
 
 import (
 	"flag"
-	"github.com/coreos/go-etcd/etcd"
 	"log"
 	"os"
+
+	"github.com/coreos/go-etcd/etcd"
 )
 
 var (

@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/coreos/go-etcd/etcd"
 	"log"
+
+	"github.com/coreos/go-etcd/etcd"
 )
 
 type EtcdInterface interface {

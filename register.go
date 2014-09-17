@@ -2,9 +2,10 @@ package main
 
 import (
 	_ "encoding/json"
-	"github.com/fsouza/go-dockerclient"
 	"log"
 	"strings"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 type Register interface {

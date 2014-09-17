@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/coreos/go-etcd/etcd"
 	"log"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/coreos/go-etcd/etcd"
 )
 
 type Cluster interface {
