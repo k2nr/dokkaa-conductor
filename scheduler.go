@@ -65,7 +65,11 @@ func NewScheduler(dc DockerInterface, etcdc EtcdInterface) Scheduler {
 
 func (s scheduler) removeContainer(m *Manifest) error {
 	name := m.Container.Name
-	err := s.dockerClient.StopContainer(name, 60)
+	_, err := s.dockerClient.InspectContainer(name)
+	if err != nil {
+		return err
+	}
+	err = s.dockerClient.StopContainer(name, 60)
 	if err != nil {
 		log.Println(err)
 		return err
@@ -109,6 +113,9 @@ func (s scheduler) onManifestChanged(appName, containerName string, resp *etcd.R
 		if acquired {
 			log.Printf("acquired: %+v\n", m)
 			s.Schedule(m)
+		} else {
+			s.removeContainer(m)
+			s.release(m)
 		}
 	case "delete":
 		s.removeContainer(m)
