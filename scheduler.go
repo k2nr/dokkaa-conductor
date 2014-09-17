@@ -8,6 +8,7 @@ import (
 	"math"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -61,54 +62,75 @@ func NewScheduler(dc DockerInterface, etcdc EtcdInterface) Scheduler {
 	}
 }
 
+func (s scheduler) onManifestChanged(appName, containerName string, resp *etcd.Response) error {
+	action := resp.Action
+	val := resp.Node.Value
+	m, err := NewManifest(appName, containerName, val)
+	if err != nil {
+		return err
+	}
+	switch action {
+	case "set":
+		cls := NewCluster(s.etcdClient)
+		order, err := cls.HostLoadOrder(hostIP)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		time.Sleep(time.Second * time.Duration(order))
+		acquired, _ := s.acquire(m)
+		if acquired {
+			log.Printf("acquired: %+v\n", m)
+			s.Schedule(m)
+		}
+	case "delete":
+		name := m.Container.Name
+		err := s.dockerClient.StopContainer(name, 60)
+		if err != nil {
+			log.Println(err)
+		}
+		_, err = s.dockerClient.WaitContainer(name)
+		if err != nil {
+			log.Println(err)
+		}
+		opts := docker.RemoveContainerOptions{
+			ID:            name,
+			RemoveVolumes: true,
+			Force:         false,
+		}
+		err = s.dockerClient.RemoveContainer(opts)
+		if err != nil {
+			log.Printf("error: %+v\n", err)
+		}
+		s.release(m)
+	}
+	return nil
+}
+
+func (s scheduler) onHostsChanged(appName, containerName string, node *etcd.Response) error {
+	// TODO
+	return nil
+}
+
 func (s scheduler) WatchAppChanges() {
 	watcher := NewEtcdWatcher(s.etcdClient)
 	recv := watcher.Watch("/apps", true)
 	for n := range recv {
-		action := n.Action
-		appName, containerName, _ := keySubMatch(n.Node.Key)
-		val := n.Node.Value
-		m, err := NewManifest(appName, containerName, val)
+		appName, containerName, file, err := keySubMatch(n.Node.Key)
 		if err != nil {
 			log.Println(err)
 			continue
 		}
-		log.Printf("etcd received: action=%s", action)
-
-		switch action {
-		case "set":
-			cls := NewCluster(s.etcdClient)
-			order, err := cls.HostLoadOrder(hostIP)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			time.Sleep(time.Second * time.Duration(order))
-			acquired, _ := s.acquire(m)
-			if acquired {
-				log.Printf("acquired: %+v\n", m)
-				s.Schedule(m)
-			}
-		case "delete":
-			name := m.Container.Name
-			err := s.dockerClient.StopContainer(name, 60)
-			if err != nil {
-				log.Printf("error: %+v\n", err)
-			}
-			_, err = s.dockerClient.WaitContainer(name)
-			if err != nil {
-				log.Printf("error: %+v\n", err)
-			}
-			opts := docker.RemoveContainerOptions{
-				ID:            name,
-				RemoveVolumes: true,
-				Force:         false,
-			}
-			err = s.dockerClient.RemoveContainer(opts)
-			if err != nil {
-				log.Printf("error: %+v\n", err)
-			}
-			s.release(m)
+		err = nil
+		switch {
+		case file == "manifest":
+			err = s.onManifestChanged(appName, containerName, n)
+		case strings.HasPrefix(file, "hosts"):
+			err = s.onHostsChanged(appName, containerName, n)
+		}
+		if err != nil {
+			log.Println(err)
+			continue
 		}
 	}
 }
@@ -128,13 +150,13 @@ type Host struct {
 	Status string `json:"status"`
 }
 
-func keySubMatch(key string) (appName, containerName string, err error) {
-	r, _ := regexp.Compile("/apps/([^/]+)/([^/]+)/manifest$")
+func keySubMatch(key string) (appName, containerName, file string, err error) {
+	r, _ := regexp.Compile("/apps/([^/]+)/([^/]+)/(manifest|hosts/.*)$")
 	submatch := r.FindStringSubmatch(key)
 	if len(submatch) == 0 {
-		return "", "", nil
+		return "", "", "", nil
 	}
-	return submatch[1], submatch[2], nil
+	return submatch[1], submatch[2], submatch[3], nil
 }
 
 func (s scheduler) getHosts(manifest *Manifest) ([]string, error) {
