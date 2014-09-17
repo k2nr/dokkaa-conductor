@@ -35,10 +35,8 @@ func (r register) StartDockerEventLoop() chan struct{} {
 		for event := range c {
 			switch event.Status {
 			case "start":
-				log.Printf("container started: %+v\n", event)
 				r.Add(DockerContainerID(event.ID))
 			case "die":
-				log.Printf("container stopped: %+v\n", event)
 				r.Delete(DockerContainerID(event.ID))
 			}
 		}
