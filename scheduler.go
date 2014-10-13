@@ -287,8 +287,8 @@ func (mr manifestRunner) buildRunOptions(container *Container) DockerRunOptions 
 	name := container.Name
 	env := buildEnv(container.Env)
 	var ports []int
-	for _, p := range container.Services {
-		ports = append(ports, p)
+	for _, s := range container.Services {
+		ports = append(ports, s.Port)
 	}
 	exposedPorts := buildExposedPorts(ports)
 	var links []string

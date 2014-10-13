@@ -16,6 +16,11 @@ type Port struct {
 	ContainerPort int
 }
 
+type Srv struct {
+	Port int
+	Role string
+}
+
 type Container struct {
 	Image    string
 	Name     string
@@ -23,7 +28,7 @@ type Container struct {
 	Env      map[string]string
 	Links    []string
 	Command  []string
-	Services map[string]int
+	Services map[string]Srv
 }
 
 type Manifest struct {
@@ -49,8 +54,11 @@ func NewManifest(app, container, val string) (*Manifest, error) {
 	}
 	m.Container.Env = map[string]string{}
 	m.Container.Env["DOKKAA_APP_NAME"] = app
-	for k, v := range m.Container.Services {
-		m.Container.Env["DOKKAA_SERVICE_"+k] = strconv.Itoa(v)
+	for k, s := range m.Container.Services {
+		m.Container.Env["DOKKAA_SERVICE_"+k] = strconv.Itoa(s.Port)
+		if s.Role != "" {
+			m.Container.Env["DOKKAA_ROLE_"+k] = s.Role
+		}
 	}
 	for i, l := range m.Container.Links {
 		port := backendsPortStart + i

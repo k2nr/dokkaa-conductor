@@ -20,6 +20,7 @@ type service struct {
 	App      string
 	Port     string
 	HostPort string
+	Role     string
 }
 
 type Announcement struct {
@@ -32,6 +33,8 @@ type Announcement struct {
 
 func Services(container *docker.Container) ([]Service, error) {
 	serviceMap := map[string]string{}
+	roleMap := map[string]string{}
+
 	var appName string
 	for _, e := range container.Config.Env {
 		parts := strings.SplitN(e, "=", 2)
@@ -43,6 +46,11 @@ func Services(container *docker.Container) ([]Service, error) {
 			name := strings.TrimPrefix(parts[0], "DOKKAA_SERVICE_")
 			name = strings.ToLower(name)
 			serviceMap[name] = parts[1]
+		}
+		if strings.HasPrefix(parts[0], "DOKKAA_ROLE_") {
+			name := strings.TrimPrefix(parts[0], "DOKKAA_ROLE_")
+			name = strings.ToLower(name)
+			roleMap[name] = parts[1]
 		}
 	}
 
@@ -61,6 +69,7 @@ func Services(container *docker.Container) ([]Service, error) {
 			Name:     name,
 			Port:     port,
 			HostPort: hostPort,
+			Role:     roleMap[name],
 		}
 		services = append(services, s)
 	}
@@ -68,9 +77,13 @@ func Services(container *docker.Container) ([]Service, error) {
 	return services, nil
 }
 
-func (s *service) path() string {
+func (s *service) appPath() string {
 	base := path.Join("/", "skydns", "local", "skydns")
-	return path.Join(base, s.App, s.Name)
+	return path.Join(base, s.App)
+}
+
+func (s *service) servicePath() string {
+	return path.Join(s.appPath(), s.Name)
 }
 
 func (s *service) Register(cli EtcdInterface) error {
@@ -80,12 +93,16 @@ func (s *service) Register(cli EtcdInterface) error {
 		Port: port,
 	}
 	value, _ := json.Marshal(ann)
-	cli.Set(s.path(), string(value), 0)
+	cli.Set(s.servicePath(), string(value), 0)
+
+	if s.Role == "web" {
+		cli.Set(s.appPath(), string(value), 0)
+	}
 
 	return nil
 }
 
 func (s *service) Delete(cli EtcdInterface) error {
-	_, err := cli.Delete(s.path(), false)
+	_, err := cli.Delete(s.servicePath(), false)
 	return err
 }
