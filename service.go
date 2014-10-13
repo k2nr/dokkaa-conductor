@@ -86,6 +86,10 @@ func (s *service) servicePath() string {
 	return path.Join(s.appPath(), s.Name)
 }
 
+func (s *service) webPath() string {
+	return path.Join("/", "skydns", "local", "skydns", "web", s.App)
+}
+
 func (s *service) Register(cli EtcdInterface) error {
 	port, _ := strconv.Atoi(s.HostPort)
 	ann := &Announcement{
@@ -96,7 +100,7 @@ func (s *service) Register(cli EtcdInterface) error {
 	cli.Set(s.servicePath(), string(value), 0)
 
 	if s.Role == "web" {
-		cli.Set(s.appPath(), string(value), 0)
+		cli.Set(s.webPath(), string(value), 0)
 	}
 
 	return nil
